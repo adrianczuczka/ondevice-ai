@@ -1,13 +1,57 @@
 # ondevice-ai
 
-One Kotlin Multiplatform API over the **system** on-device AI models – Gemini
-Nano (ML Kit GenAI / AICore) on Android, Apple Foundation Models on iOS 26+.
-Zero bundled weights: the OS owns the models.
+**One Kotlin Multiplatform API over the system on-device AI models – Gemini
+Nano on Android, Apple Foundation Models on iOS.**
 
-> **Status: pre-1.0, API will change. Not yet on Maven Central.** Both engines
-> are validated against live models: Android on hardware (Pixel 10 Pro XL,
+![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.3-7F52FF?logo=kotlin&logoColor=white)
+![Platforms](https://img.shields.io/badge/Platforms-Android_%7C_iOS-3DDC84)
+![Status](https://img.shields.io/badge/Status-pre--1.0-orange)
+
+Both platforms now ship a foundation model *inside the OS* – free to call,
+private by default, updated by the system, and adding zero megabytes to your
+app. This library gives your KMP shared code one API over both, with the
+platform differences – availability, download states, quotas, policies –
+handled where they belong.
+
+> **Pre-1.0: the API will change. Not yet on Maven Central.** Both engines are
+> validated against live models: Android on hardware (Pixel 10 Pro XL,
 > nano-v3, integrated in a production app), iOS against Apple Foundation
-> Models (iOS 26 simulator with an Apple Intelligence host). Apache-2.0.
+> Models (iOS 26 simulator with an Apple Intelligence host).
+
+## Why this exists
+
+Using the built-in models from shared Kotlin code means fighting four
+platforms' worth of friction:
+
+- **Two unrelated APIs** – ML Kit GenAI on Android, the Swift-only
+  FoundationModels framework on iOS (which Kotlin/Native cannot even see).
+- **Fragmented availability** – eligible devices, model downloads, an Apple
+  Intelligence toggle, models still provisioning. Every state needs different
+  UI.
+- **Undocumented platform policy** – AICore enforces a per-app inference
+  quota and refuses calls from backgrounded apps. Neither is in the docs;
+  both are typed errors here.
+- **Real apps need fallbacks** – on-device when possible, your server when
+  not, and a privacy mode that guarantees data never leaves the device.
+
+## Features
+
+- ✅ **One `ChatSession` API** – sessions, transcripts, and streaming that
+  behave identically on both platforms (deltas everywhere; the iOS engine
+  diffs Foundation Models' cumulative snapshots for you)
+- ✅ **Availability as a sealed type** – `Available / Downloadable /
+  Downloading / Unavailable(reason)` with six distinct reasons, because
+  "show a download button" and "send the user to Settings" are different UIs
+- ✅ **Structured output** from any `@Serializable` class
+- ✅ **Typed platform-policy errors** – `Busy(retryDelay)`,
+  `BackgroundBlocked`, `ContextWindowExceeded` – field-verified on hardware
+- ✅ **Engine SPI with routing policies** – `RoutingPolicy.OnDeviceOnly` is a
+  privacy guarantee enforced by type; bundled-weight and cloud engines can
+  plug in behind the same facade
+- ✅ **Zero bundled weights** – the OS owns and updates the models
+
+## Quick start
 
 ```kotlin
 val ai = OnDeviceAi()
@@ -31,7 +75,27 @@ data class ActionItem(val what: String, val dueDate: String?)
 val item: ActionItem = session.respondStructured("Extract the action item: $message")
 ```
 
-## Getting it
+Platform policies surface as typed errors, not mystery failures:
+
+```kotlin
+try {
+    session.respond(prompt)
+} catch (e: OnDeviceAiException.Busy) {
+    // AICore's rolling per-app quota – it tells you when to come back
+    retryLaterOrFallBack(e.retryDelay)
+} catch (e: OnDeviceAiException.BackgroundBlocked) {
+    // Inference requires a foregrounded app – route to your server path
+    fallBack()
+}
+```
+
+And when the data must never leave the device:
+
+```kotlin
+val ai = OnDeviceAi(policy = RoutingPolicy.OnDeviceOnly)
+```
+
+## Installation
 
 Until the first Maven Central release, consume it as a Gradle composite build:
 
@@ -47,45 +111,20 @@ dependencies {
 }
 ```
 
-**Requirements**
+### Requirements
 
-- Built with Kotlin 2.3, AGP 9.2 (`com.android.kotlin.multiplatform.library`),
-  Gradle 9.5 – composite-build consumers need compatible tooling.
-- **Android:** minSdk 26. Live inference needs an AICore-capable device
-  (Pixel 8+, Galaxy S24+, and other recent flagships) with the model
-  provisioned – `availability()` tells you which state you are in. Pulls
-  `com.google.mlkit:genai-prompt` (beta) and enforces
-  kotlinx-coroutines ≥ 1.11.0 (see field notes).
-- **iOS:** iOS 26+, device or simulator with Apple Intelligence available.
-  The host app registers a small Swift bridge – see below.
-
-## Design decisions
-
-- **Sessions are the core primitive** – both platform APIs are session-based;
-  `ChatSession` is `AutoCloseable` because sessions hold native resources.
-- **Availability is a type, not a boolean** – `Available / Downloadable /
-  Downloading / Unavailable(reason)`, because each case demands different UI.
-- **Thin facade over an engine SPI** – the core artifact ships only
-  `SystemEngine`. Bundled-weight engines (llama.cpp-style) and a cloud escape
-  hatch are future opt-in artifacts; `RoutingPolicy.OnDeviceOnly` is the
-  privacy guarantee, enforced by type.
-- **`stream()` emits deltas everywhere** – ML Kit already does; the iOS engine
-  diffs Foundation Models' cumulative snapshots.
-
-## Platform mapping
-
-| commonMain | Android | iOS |
-|---|---|---|
-| `availability()` | `GenerativeModel.checkStatus()` | `SystemLanguageModel.availability` (via bridge) |
-| `chat()` / `respond()` | Prompt API `generateContent` | `LanguageModelSession.respond` |
-| `stream()` | `generateContentStream` (deltas) | `streamResponse` snapshots → diffed |
-| `respondStructured()` | JSON prompt + validate/retry | JSON prompt + validate/retry |
-| instructions / options | `SystemInstruction`, request builder | `LanguageModelSession(instructions:)` |
+| | |
+|---|---|
+| Toolchain | Kotlin 2.3+, AGP 9.2+ (`com.android.kotlin.multiplatform.library`), Gradle 9.5+ |
+| Android | minSdk 26; live inference needs an AICore-capable device (Pixel 8+, Galaxy S24+, recent flagships) – `availability()` reports the state. Pulls `com.google.mlkit:genai-prompt` (beta); enforces kotlinx-coroutines ≥ 1.11.0 (see field notes) |
+| iOS | iOS 26+ with Apple Intelligence; the app registers a small Swift bridge (below) |
 
 ## iOS setup
 
-Two steps. First, export this library through your shared module's iOS
-framework so its types are visible from Swift:
+FoundationModels is Swift-only, so setup is two steps.
+
+**1.** Export this library through your shared module's iOS framework so its
+types are visible from Swift:
 
 ```kotlin
 // shared/build.gradle.kts
@@ -101,17 +140,26 @@ kotlin {
 }
 ```
 
-Second: FoundationModels is Swift-only and unreachable from Kotlin/Native, so
-the host app implements a small bridge protocol and registers it once at
-startup (copy the reference implementation from
-`ios-bridge/FoundationModelsBridgeImpl.swift` into your app target):
+**2.** Copy the reference bridge from
+[`ios-bridge/FoundationModelsBridgeImpl.swift`](ios-bridge/FoundationModelsBridgeImpl.swift)
+into your app target and register it once at startup:
 
 ```swift
 OnDeviceAiIos.shared.bridge = FoundationModelsBridgeImpl()
 ```
 
-On iOS < 26 leave the bridge unregistered – the library reports
+On iOS < 26, leave the bridge unregistered – the library reports
 `Unavailable(NotConfigured)` and your fallback path takes over.
+
+## Platform mapping
+
+| commonMain | Android | iOS |
+|---|---|---|
+| `availability()` | `GenerativeModel.checkStatus()` | `SystemLanguageModel.availability` (via bridge) |
+| `chat()` / `respond()` | Prompt API `generateContent` | `LanguageModelSession.respond` |
+| `stream()` | `generateContentStream` (deltas) | `streamResponse` snapshots → diffed |
+| `respondStructured()` | JSON prompt + validate/retry | JSON prompt + validate/retry |
+| instructions / options | `SystemInstruction`, request builder | `LanguageModelSession(instructions:)` |
 
 ## How this compares
 
@@ -158,3 +206,14 @@ POM defect), [mlkit#1069](https://github.com/googlesamples/mlkit/issues/1069)
 - [ ] Native multi-turn requests on Android (history currently rides in the prompt text)
 - [ ] `ContentBlocked` mapping for platform safety signals (`Busy`, `BackgroundBlocked`, and `ContextWindowExceeded` shipped)
 - [ ] Binary-compat validator, publishing to Maven Central (`explicitApi` shipped)
+
+## Contributing
+
+Issues and PRs are welcome – especially reports from devices and OS versions
+not covered above, which is exactly the data this space is missing. If
+something behaves differently on your hardware, an issue with the
+`availability()` output and the failing call is genuinely useful.
+
+## License
+
+[Apache 2.0](LICENSE)
