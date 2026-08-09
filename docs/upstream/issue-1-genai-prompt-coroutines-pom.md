@@ -1,4 +1,4 @@
-# Issue 1 – file at: https://github.com/googlesamples/mlkit/issues/new
+# Issue 1 – FILED: https://github.com/googlesamples/mlkit/issues/1068
 
 **Title:** genai-prompt 1.0.0-beta4: NoSuchMethodError at runtime with kotlinx-coroutines 1.10.x – POM omits the required >= 1.11.0 constraint
 

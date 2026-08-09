@@ -1,4 +1,4 @@
-# Issue 3 – file at: https://issuetracker.google.com (Android > AICore / ML Kit component); also via "Send feedback" on https://developers.google.com/ml-kit/genai/prompt/android/get-started
+# Issue 3 – FILED: https://github.com/googlesamples/mlkit/issues/1070 (IssueTracker escalation still possible if it stalls)
 
 **Title:** Document AICore's per-app inference quota – sustained generation returns GenAiException BUSY (error code 9) after ~40 requests
 

@@ -1,4 +1,4 @@
-# Issue 2 – file at: https://issuetracker.google.com (Android > AICore / ML Kit component); also via "Send feedback" on https://developers.google.com/ml-kit/genai/prompt/android/get-started
+# Issue 2 – FILED: https://github.com/googlesamples/mlkit/issues/1069 (IssueTracker escalation still possible if it stalls)
 
 **Title:** Document that AICore blocks inference for backgrounded apps (GenAiException BACKGROUND_USE_BLOCKED / error code 30)
 
