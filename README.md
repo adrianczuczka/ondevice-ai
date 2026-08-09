@@ -3,6 +3,7 @@
 **One Kotlin Multiplatform API over the system on-device AI models – Gemini
 Nano on Android, Apple Foundation Models on iOS.**
 
+[![Maven Central](https://img.shields.io/maven-central/v/com.adrianczuczka.ondeviceai/core)](https://central.sonatype.com/artifact/com.adrianczuczka.ondeviceai/core)
 ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.3-7F52FF?logo=kotlin&logoColor=white)
 ![Platforms](https://img.shields.io/badge/Platforms-Android_%7C_iOS-3DDC84)
@@ -14,7 +15,7 @@ app. This library gives your KMP shared code one API over both, with the
 platform differences – availability, download states, quotas, policies –
 handled where they belong.
 
-> **Pre-1.0: the API will change. Not yet on Maven Central.** Both engines are
+> **Pre-1.0 – the API will change.** Both engines are
 > validated against live models: Android on hardware (Pixel 10 Pro XL,
 > nano-v3, integrated in a production app), iOS against Apple Foundation
 > Models (iOS 26 simulator with an Apple Intelligence host).
@@ -97,25 +98,20 @@ val ai = OnDeviceAi(policy = RoutingPolicy.OnDeviceOnly)
 
 ## Installation
 
-Until the first Maven Central release, consume it as a Gradle composite build:
-
 ```kotlin
-// settings.gradle.kts
-includeBuild("path/to/ondevice-ai")
-```
-
-```kotlin
-// your module
 dependencies {
-    implementation("com.adrianczuczka.ondeviceai:core:0.1.0-SNAPSHOT")
+    implementation("com.adrianczuczka.ondeviceai:core:0.1.0")
 }
 ```
+
+For local development against a checkout, a Gradle composite build works too:
+`includeBuild("path/to/ondevice-ai")` in `settings.gradle.kts`.
 
 ### Requirements
 
 | | |
 |---|---|
-| Toolchain | Kotlin 2.3+, AGP 9.2+ (`com.android.kotlin.multiplatform.library`), Gradle 9.5+ |
+| Toolchain | Kotlin 2.3+; any modern AGP/Gradle able to consume KMP libraries |
 | Android | minSdk 26; live inference needs an AICore-capable device (Pixel 8+, Galaxy S24+, recent flagships) – `availability()` reports the state. Pulls `com.google.mlkit:genai-prompt` (beta); enforces kotlinx-coroutines ≥ 1.11.0 (see field notes) |
 | iOS | iOS 26+ with Apple Intelligence; the app registers a small Swift bridge (below) |
 
@@ -130,11 +126,11 @@ types are visible from Swift:
 // shared/build.gradle.kts
 kotlin {
     sourceSets.commonMain.dependencies {
-        api("com.adrianczuczka.ondeviceai:core:0.1.0-SNAPSHOT")
+        api("com.adrianczuczka.ondeviceai:core:0.1.0")
     }
     listOf(iosArm64(), iosSimulatorArm64(), iosX64()).forEach { target ->
         target.binaries.framework {
-            export("com.adrianczuczka.ondeviceai:core:0.1.0-SNAPSHOT")
+            export("com.adrianczuczka.ondeviceai:core:0.1.0")
         }
     }
 }
