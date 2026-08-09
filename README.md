@@ -5,10 +5,10 @@ Nano (ML Kit GenAI / AICore) on Android, Apple Foundation Models on iOS 26+.
 Zero bundled weights: the OS owns the models.
 
 > **Status: pre-1.0, API will change. Not yet on Maven Central** – consume via
-> Gradle `includeBuild` for now. The Android engine is validated live on
-> hardware (Pixel 10 Pro XL, nano-v3, production app integration); the iOS
-> engine is compile-verified against the iOS 26 SDK but has not yet executed
-> against a live model. Apache-2.0.
+> Gradle `includeBuild` for now. Both engines are validated against live
+> models: Android on hardware (Pixel 10 Pro XL, nano-v3, production app
+> integration), iOS against Apple Foundation Models (iOS 26 simulator,
+> Apple Intelligence host). Apache-2.0.
 
 ```kotlin
 val ai = OnDeviceAi()
