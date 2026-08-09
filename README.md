@@ -4,18 +4,17 @@ One Kotlin Multiplatform API over the **system** on-device AI models – Gemini
 Nano (ML Kit GenAI / AICore) on Android, Apple Foundation Models on iOS 26+.
 Zero bundled weights: the OS owns the models.
 
-> **Status: pre-1.0, API will change. Not yet on Maven Central** – consume via
-> Gradle `includeBuild` for now. Both engines are validated against live
-> models: Android on hardware (Pixel 10 Pro XL, nano-v3, production app
-> integration), iOS against Apple Foundation Models (iOS 26 simulator,
-> Apple Intelligence host). Apache-2.0.
+> **Status: pre-1.0, API will change. Not yet on Maven Central.** Both engines
+> are validated against live models: Android on hardware (Pixel 10 Pro XL,
+> nano-v3, integrated in a production app), iOS against Apple Foundation
+> Models (iOS 26 simulator with an Apple Intelligence host). Apache-2.0.
 
 ```kotlin
 val ai = OnDeviceAi()
 
 when (val a = ai.availability()) {
-    is Availability.Available    -> ai.chat(SessionConfig(instructions = "…")).use { session ->
-        session.stream("Should I bring a jacket today?").collect(::print)
+    is Availability.Available    -> ai.chat(SessionConfig(instructions = "You are terse.")).use { session ->
+        session.stream("Summarize these notes in one sentence: $notes").collect(::print)
     }
     is Availability.Downloadable -> ai.download().collect { /* progress UI */ }
     is Availability.Downloading  -> { /* spinner */ }
@@ -23,14 +22,42 @@ when (val a = ai.availability()) {
 }
 ```
 
-Structured output from a `@Serializable` class:
+Structured output from any `@Serializable` class:
 
 ```kotlin
 @Serializable
-data class Advice(val wearJacket: Boolean, val reason: String)
+data class ActionItem(val what: String, val dueDate: String?)
 
-val advice: Advice = session.respondStructured("Given $forecast, jacket or not?")
+val item: ActionItem = session.respondStructured("Extract the action item: $message")
 ```
+
+## Getting it
+
+Until the first Maven Central release, consume it as a Gradle composite build:
+
+```kotlin
+// settings.gradle.kts
+includeBuild("path/to/ondevice-ai")
+```
+
+```kotlin
+// your module
+dependencies {
+    implementation("com.adrianczuczka.ondeviceai:core:0.1.0-SNAPSHOT")
+}
+```
+
+**Requirements**
+
+- Built with Kotlin 2.3, AGP 9.2 (`com.android.kotlin.multiplatform.library`),
+  Gradle 9.5 – composite-build consumers need compatible tooling.
+- **Android:** minSdk 26. Live inference needs an AICore-capable device
+  (Pixel 8+, Galaxy S24+, and other recent flagships) with the model
+  provisioned – `availability()` tells you which state you are in. Pulls
+  `com.google.mlkit:genai-prompt` (beta) and enforces
+  kotlinx-coroutines ≥ 1.11.0 (see field notes).
+- **iOS:** iOS 26+, device or simulator with Apple Intelligence available.
+  The host app registers a small Swift bridge – see below.
 
 ## Design decisions
 
@@ -57,12 +84,34 @@ val advice: Advice = session.respondStructured("Given $forecast, jacket or not?"
 
 ## iOS setup
 
-FoundationModels is Swift-only, so the host app registers a small bridge once
-at startup (reference implementation in `ios-bridge/FoundationModelsBridgeImpl.swift`):
+Two steps. First, export this library through your shared module's iOS
+framework so its types are visible from Swift:
+
+```kotlin
+// shared/build.gradle.kts
+kotlin {
+    sourceSets.commonMain.dependencies {
+        api("com.adrianczuczka.ondeviceai:core:0.1.0-SNAPSHOT")
+    }
+    listOf(iosArm64(), iosSimulatorArm64(), iosX64()).forEach { target ->
+        target.binaries.framework {
+            export("com.adrianczuczka.ondeviceai:core:0.1.0-SNAPSHOT")
+        }
+    }
+}
+```
+
+Second: FoundationModels is Swift-only and unreachable from Kotlin/Native, so
+the host app implements a small bridge protocol and registers it once at
+startup (copy the reference implementation from
+`ios-bridge/FoundationModelsBridgeImpl.swift` into your app target):
 
 ```swift
 OnDeviceAiIos.shared.bridge = FoundationModelsBridgeImpl()
 ```
+
+On iOS < 26 leave the bridge unregistered – the library reports
+`Unavailable(NotConfigured)` and your fallback path takes over.
 
 ## How this compares
 
@@ -81,7 +130,8 @@ can sit behind one `OnDeviceAi` facade.
 
 ## Field notes (Pixel 10 Pro XL, Nano v3, Aug 2026)
 
-Three findings from production integration are filed upstream:
+Findings from integrating this library into a production Android app, filed
+upstream where they belong:
 [mlkit#1068](https://github.com/googlesamples/mlkit/issues/1068) (coroutines
 POM defect), [mlkit#1069](https://github.com/googlesamples/mlkit/issues/1069)
 (undocumented background-inference block – surfaced as the typed
@@ -89,8 +139,9 @@ POM defect), [mlkit#1069](https://github.com/googlesamples/mlkit/issues/1069)
 [mlkit#1070](https://github.com/googlesamples/mlkit/issues/1070)
 (undocumented BUSY quota – surfaced as `Busy(retryDelay)`).
 
-- First live inference through the full stack succeeded; `ModelInfo` reported
-  `nano-v3` with an 8192-token context window.
+- **Context windows differ meaningfully across platforms:** nano-v3 reports
+  8192 tokens, Apple's Foundation Models 4096. Size prompts for the smaller
+  one, or branch on `ModelInfo.contextWindowTokens`.
 - **AICore blocks inference from backgrounded apps** (`BACKGROUND_USE_BLOCKED`,
   error code 30). Availability checks work from anywhere; generation needs a
   foreground app. Design consequence: background workers cannot generate.
