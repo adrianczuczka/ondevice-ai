@@ -103,8 +103,7 @@ POM defect), [mlkit#1069](https://github.com/googlesamples/mlkit/issues/1069)
 - [ ] ML Kit LoRA-tuned feature clients behind `summarize` / `proofread` / `rewrite`
 - [ ] Constrained decoding: `SerialDescriptor` → `DynamicGenerationSchema` (iOS),
       `genai-schema` typed requests (Android)
-- [ ] Image input (`describeImage` currently `TODO()`)
+- [ ] Image input (removed from the public surface until implemented)
 - [ ] Native multi-turn requests on Android (history currently rides in the prompt text)
-- [ ] Error-code mapping to `ContentBlocked` / `ContextWindowExceeded` /
-      a typed background-blocked error (GenAiException code 30)
-- [ ] `explicitApi()`, binary-compat validator, publishing to Maven Central
+- [ ] `ContentBlocked` mapping for platform safety signals (`Busy`, `BackgroundBlocked`, and `ContextWindowExceeded` shipped)
+- [ ] Binary-compat validator, publishing to Maven Central (`explicitApi` shipped)
