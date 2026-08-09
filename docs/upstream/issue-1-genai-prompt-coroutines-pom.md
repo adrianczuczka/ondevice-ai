@@ -6,18 +6,13 @@
 
 ### Description
 
-`com.google.mlkit:genai-prompt:1.0.0-beta4` crashes at runtime with a
-`NoSuchMethodError` when the app's dependency graph resolves
-kotlinx-coroutines 1.10.x. The library's bytecode requires coroutines
+`com.google.mlkit:genai-prompt:1.0.0-beta4` crashes at runtime with a `NoSuchMethodError` when the app's dependency graph resolves kotlinx-coroutines 1.10.x. The library's bytecode requires coroutines
 >= 1.11.0, but its published POM does not declare that requirement, so Gradle
 happily resolves older versions and the failure only appears on device.
 
 ### Minimal reproduction
 
-https://github.com/adrianczuczka/mlkit-genai-coroutines-repro – clone, run,
-tap the button. The app declares `genai-prompt:1.0.0-beta4` plus
-`kotlinx-coroutines-android:1.10.2` (a current, valid version) and calls
-`GenerativeModel.download()`.
+https://github.com/adrianczuczka/mlkit-genai-coroutines-repro – clone, run, tap the button. The app declares `genai-prompt:1.0.0-beta4` plus `kotlinx-coroutines-android:1.10.2` (a current, valid version) and calls `GenerativeModel.download()`.
 
 ### Observed
 
@@ -30,22 +25,18 @@ java.lang.NoSuchMethodError: No static method cancel$default(Lkotlinx/coroutines
     at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:232)
 ```
 
-Observed on a Pixel 10 Pro XL (Android 17) inside the `download()` flow; the
-failure is class linkage, not AICore behavior.
+Observed on a Pixel 10 Pro XL (Android 17) inside the `download()` flow; the failure is class linkage, not AICore behavior.
 
 ### Root cause
 
-kotlinx-coroutines switched interface compilation to `-Xjvm-default=all` in
-1.11.0. Verified with `javap -p` against both published jars:
+kotlinx-coroutines switched interface compilation to `-Xjvm-default=all` in 1.11.0. Verified with `javap -p` against both published jars:
 
 | | `Job.cancel$default` (interface static) | `Job$DefaultImpls.cancel$default` |
 |---|---|---|
 | coroutines 1.10.2 | absent | present |
 | coroutines 1.11.0 | present | present (compat) |
 
-genai-prompt 1.0.0-beta4 was compiled against >= 1.11.0 and its bytecode
-invokes the interface-static form, which does not exist on a 1.10.x runtime
-classpath.
+genai-prompt 1.0.0-beta4 was compiled against >= 1.11.0 and its bytecode invokes the interface-static form, which does not exist on a 1.10.x runtime classpath.
 
 ### Expected
 
@@ -59,8 +50,7 @@ The published POM (or Gradle module metadata) declares the real minimum:
 </dependency>
 ```
 
-so dependency resolution upgrades automatically instead of crashing at
-runtime.
+so dependency resolution upgrades automatically instead of crashing at runtime.
 
 ### Workaround
 
