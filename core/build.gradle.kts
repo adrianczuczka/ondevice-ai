@@ -6,16 +6,17 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
 }
 
-group = "dev.ondeviceai"
+group = "com.adrianczuczka.ondeviceai"
 version = "0.1.0-SNAPSHOT"
 
 kotlin {
+    explicitApi()
     compilerOptions {
         freeCompilerArgs.add("-Xexpect-actual-classes")
     }
 
     android {
-        namespace = "dev.ondeviceai.core"
+        namespace = "com.adrianczuczka.ondeviceai.core"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 

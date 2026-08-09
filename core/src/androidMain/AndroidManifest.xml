@@ -9,7 +9,7 @@
             android:exported="false"
             tools:node="merge">
             <meta-data
-                android:name="dev.ondeviceai.OnDeviceAiInitializer"
+                android:name="com.adrianczuczka.ondeviceai.OnDeviceAiInitializer"
                 android:value="androidx.startup" />
         </provider>
     </application>

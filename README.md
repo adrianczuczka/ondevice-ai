@@ -4,12 +4,11 @@ One Kotlin Multiplatform API over the **system** on-device AI models – Gemini
 Nano (ML Kit GenAI / AICore) on Android, Apple Foundation Models on iOS 26+.
 Zero bundled weights: the OS owns the models.
 
-> Status: experimental scaffold. Android engine wired against
-> `genai-prompt:1.0.0-beta4`; iOS engine wired to a Swift bridge seam
-> (FoundationModels is Swift-only). Routing, structured-output retry, and
-> download logic covered by common tests (JVM + iOS native); the Swift bridge
-> is compile-verified against the exported framework and the iOS 26 SDK.
-> Not yet run against a live model. Working name – not yet published.
+> **Status: pre-1.0, API will change. Not yet on Maven Central** – consume via
+> Gradle `includeBuild` for now. The Android engine is validated live on
+> hardware (Pixel 10 Pro XL, nano-v3, production app integration); the iOS
+> engine is compile-verified against the iOS 26 SDK but has not yet executed
+> against a live model. Apache-2.0.
 
 ```kotlin
 val ai = OnDeviceAi()
@@ -65,7 +64,30 @@ at startup (reference implementation in `ios-bridge/FoundationModelsBridgeImpl.s
 OnDeviceAiIos.shared.bridge = FoundationModelsBridgeImpl()
 ```
 
+## How this compares
+
+| | this library | [Llamatik](https://github.com/ferranpons/llamatik) | [litertlm-kmp](https://github.com/sagar-develop/litertlm-kmp) |
+|---|---|---|---|
+| Model source | **System models** (Gemini Nano via ML Kit / Apple Foundation Models) – zero bundled weights, OS-updated | Bring-your-own via llama.cpp / whisper.cpp / SD | Bring-your-own Gemma via LiteRT-LM |
+| App size cost | ~0 | Native libs + model files (hundreds of MB) | Engine + model files |
+| Platforms | Android (AICore devices), iOS 26+ | Android, iOS, Desktop, JVM, WASM | Android-first |
+| Typed errors for platform policy (quota, background block) | Yes – field-verified | n/a | n/a |
+| License | Apache-2.0 | see repo | AGPL-3.0 / commercial |
+
+The niches are complementary: system models when you want zero-download,
+private, OS-maintained inference on eligible devices; bundled engines when
+you need every device or custom weights. The engine SPI is designed so both
+can sit behind one `OnDeviceAi` facade.
+
 ## Field notes (Pixel 10 Pro XL, Nano v3, Aug 2026)
+
+Three findings from production integration are filed upstream:
+[mlkit#1068](https://github.com/googlesamples/mlkit/issues/1068) (coroutines
+POM defect), [mlkit#1069](https://github.com/googlesamples/mlkit/issues/1069)
+(undocumented background-inference block – surfaced as the typed
+`BackgroundBlocked` error), and
+[mlkit#1070](https://github.com/googlesamples/mlkit/issues/1070)
+(undocumented BUSY quota – surfaced as `Busy(retryDelay)`).
 
 - First live inference through the full stack succeeded; `ModelInfo` reported
   `nano-v3` with an 8192-token context window.
